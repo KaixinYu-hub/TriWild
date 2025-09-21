@@ -8,5 +8,6 @@ bin_rel*
 
 *.DS_Store*
 
+*data*
 
 extern
