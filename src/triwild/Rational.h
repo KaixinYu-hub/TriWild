@@ -16,6 +16,7 @@ namespace triwild {
 
     class Rational {//https://cs.nyu.edu/acsys/cvc3/releases/1.5/doc/rational-gmp_8cpp-source.html
     public:
+        //GMP 提供的有理数类型：分子分母都用任意精度整数存储。GMP 提供的有理数类型：分子分母都用任意精度整数存储。
         mpq_t value;
         void canonicalize() {
             mpq_canonicalize(value);
