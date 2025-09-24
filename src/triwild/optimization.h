@@ -71,6 +71,8 @@ namespace triwild {
         void output_boundary(MeshData& mesh, bool is_feature = false);
         template<typename T>
         std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec);
+
+        //移除 std::vector<T> 中的重复元素，并保持剩下的元素唯一。
         template<typename T>
         void vector_unique(std::vector<T>& v){
             std::sort(v.begin(), v.end());

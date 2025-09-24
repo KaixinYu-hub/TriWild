@@ -13,7 +13,11 @@
 #include <igl/unique_rows.h>
 #include <igl/writeSTL.h>
 
-bool triwild::triangulation::load_input(const std::string& input, Eigen::MatrixXd& V, std::vector<std::array<int, 2>>& edges) {
+bool triwild::triangulation::load_input(
+    const std::string& input, 
+    Eigen::MatrixXd& V, 
+    std::vector<std::array<int, 2>>& edges) 
+{
     std::ifstream is(input, std::ios::in);
     if (is.fail())
         throw std::runtime_error("Unable to open input file \"" + input + "\"!");
@@ -58,50 +62,80 @@ bool triwild::triangulation::load_input(const std::string& input, Eigen::MatrixX
     return true;
 }
 
-void triwild::triangulation::preprocessing(Eigen::MatrixXd& V, std::vector<std::array<int, 2>>& edges, GEO::Mesh& b_mesh) {
-    auto build_b_mesh = [](const Eigen::MatrixXd &V, const std::vector<std::array<int, 2>> &edges,
-                           GEO::Mesh &b_mesh) -> void {
-        b_mesh.vertices.clear();
-        b_mesh.vertices.create_vertices(V.rows());
+//传入/传出：V（二维点坐标，N×2）、edges（边索引列表）、b_mesh（Geogram 的网格容器）。
+void triwild::triangulation::preprocessing(
+    Eigen::MatrixXd& V, 
+    std::vector<std::array<int, 2>>& edges, 
+    GEO::Mesh& b_mesh) 
+{
+    //把 2D 线框装进 Geogram 网格
+    auto build_b_mesh = [](
+        const Eigen::MatrixXd &V, 
+        const std::vector<std::array<int, 2>> &edges,
+        GEO::Mesh &b_mesh) -> void 
+        {
+        b_mesh.vertices.clear();//清空已有顶点。
+        b_mesh.vertices.create_vertices(V.rows());//预分配与 V 行数相同的顶点槽位。
+
+        //逐点拷贝：把二维点 (x,y) 写入三维坐标 (x,y,0)（Geogram 的网格和空间结构按 3D 处理）。
         for (int i = 0; i < V.rows(); i++) {
             GEO::vec3 &p = b_mesh.vertices.point(i);
             p[0] = V(i, 0);
             p[1] = V(i, 1);
             p[2] = 0;
         }
-        b_mesh.facets.clear();
-        b_mesh.facets.create_triangles(edges.size());
+        b_mesh.facets.clear();//清空Geogram中已有面片。
+        b_mesh.facets.create_triangles(edges.size());//为每条输入边分配一个“面片”槽位（面片数=边数）。
+
+        //把每条边 (v0,v1) 存成退化三角形 (v0,v1,v1)，这样后续可以用“面片 AABB 树”做加速查询。
         for (int i = 0; i < edges.size(); i++) {
             b_mesh.facets.set_vertex(i, 0, edges[i][0]);
             b_mesh.facets.set_vertex(i, 1, edges[i][1]);
             b_mesh.facets.set_vertex(i, 2, edges[i][1]);
         }
+        //让 Geogram 计算边界/邻接信息（后续简化/查询会用到）。
         b_mesh.facets.compute_borders();
     };
 
     ////global parameters
+    //计算全局尺度/公差
     auto set_global_parameters = [&]() {
+
+        //求输入点的包围盒最大/最小角，包围盒对角线长度（作为数据尺度基准）。
         args.box_max = V.colwise().maxCoeff();
         args.box_min = V.colwise().minCoeff();
         args.diagonal_len = (args.box_max - args.box_min).norm();
+        //若用户没给绝对目标边长，则用“对角线 × 相对比例”设定。
         if (args.target_edge_len == -1)
             args.target_edge_len = args.diagonal_len * args.edge_length_r;//args.i_edge_length == 20 in init
+
+        //意思：用户给定一个相对精度 epsilon（通常很小，比如 1e-3）。
+        //通过乘上模型对角线长度 diagonal_len，得到一个绝对公差范围 input_envelop。
+        //作用：决定“多大范围内算是几何一致”的尺度，用于简化、匹配或判定点在线/边/曲线附近。
         double input_envelop = args.epsilon * args.diagonal_len;
         double dd = input_envelop;
+
+        //把包络半径收紧为 input_envelop - dd/2
         args.envelope = input_envelop - dd / 2;//sampling error = dd / 2
+        
+        //记录采样间距，用于后续网格点布置或空间检查。
         args.sampling_density = dd;
 
-        if(!args.is_preserving_feature)
+        //控制最小允许边长，防止无限细分。
+        if(!args.is_preserving_feature)//非保特征：
             args.min_edge_length = args.envelope / args.target_edge_len;
-        else
+        else //保特征：
             args.min_edge_length = (args.diagonal_len * 1e-4 * 2) / args.target_edge_len;
 
 //        if(args.stage > 1)
 //            args.envelope /= 2;
+        //如果算法分多个阶段进行（stage > 1），每一阶段使用更小的包络。
         args.envelope /= args.stage;
     };
 
     ////remove duplicates & degenerates
+
+    //记录当前顶点/边数量
     int old_cnt_v = V.rows();
     int old_cnt_e = edges.size();
 
@@ -113,24 +147,32 @@ void triwild::triangulation::preprocessing(Eigen::MatrixXd& V, std::vector<std::
 //    }
 
     //duplicate vertices
+    //用 libigl 的 unique_rows 去掉重复顶点；VI 是“旧 → 新”的索引映射；V 替换为去重后的顶点表。
     Eigen::VectorXi VI, _;
     Eigen::MatrixXd V_tmp;
     igl::unique_rows(V, V_tmp, _, VI);
     V = V_tmp;
 
     //duplicate/degenerate edges
+    
     for (int i = 0; i < edges.size(); i++) {
+        //对每条边，用 VI 把两端点编号映射到新顶点编号。
         auto &e = edges[i];
         edges[i][0] = VI(edges[i][0]);
         edges[i][1] = VI(edges[i][1]);
+        //如果两端相同（退化边），删除该边，并回退 i 继续检查。
         if (e[0] == e[1]) {
             edges.erase(edges.begin() + i);
             i--;
-        } else if (e[0] > e[1])
+        } 
+        //规范端点顺序为 (小, 大)，方便后续唯一化。
+        else if (e[0] > e[1])
             std::swap(e[0], e[1]);
     }
-    optimization::vector_unique(edges);
 
+    optimization::vector_unique(edges);//移除重复边
+
+    //输出顶点/边清洗前后的数量；并更新基线计数。
     cout << "remove duplicates:" << endl;
     cout << "#v " << old_cnt_v << "->" << V.rows() << endl;
     cout << "#e " << old_cnt_e << "->" << edges.size() << endl;
@@ -138,18 +180,24 @@ void triwild::triangulation::preprocessing(Eigen::MatrixXd& V, std::vector<std::
     old_cnt_e = edges.size();
 
     //update feature
-    if (args.is_preserving_feature) {
+    if (args.is_preserving_feature) //保特征
+    {
         //remove degenerate feature edges
         for (int i = 0; i < feature::features.size(); i++) {
-            for (int j = 0; j < feature::features[i]->v_ids.size(); j++) {
+            for (int j = 0; j < feature::features[i]->v_ids.size(); j++) 
+            {
+                //遍历每条特征折线，用 VI 把它的顶点编号映射到“去重后的编号”。
                 feature::features[i]->v_ids[j] = VI(feature::features[i]->v_ids[j]);
-                if (j > 0 && feature::features[i]->v_ids[j] == feature::features[i]->v_ids[j - 1]) {
+                //若出现相邻重复顶点（退化段），删掉该点及其参数（保持数组对齐），回退 j 继续。
+                if (j > 0 && feature::features[i]->v_ids[j] == feature::features[i]->v_ids[j - 1]) 
+                {
                     feature::features[i]->v_ids.erase(feature::features[i]->v_ids.begin() + j);
                     feature::features[i]->paras.erase(feature::features[i]->paras.begin() + j);
                     j--;
                     continue;
                 }
             }
+            //如果该特征只剩 0/1 个点，整条特征无效，删除该特征。
             if (feature::features[i]->v_ids.size() < 2) {
                 feature::features.erase(feature::features.begin() + i);
                 i--;
@@ -157,24 +205,27 @@ void triwild::triangulation::preprocessing(Eigen::MatrixXd& V, std::vector<std::
             }
         }
 
-        set_global_parameters();
-        feature::preprocessing(V, edges);
+        
+        set_global_parameters();//特征清洗后可能改变 V/edges 分布，重新计算全局尺度/公差。
+        feature::preprocessing(V, edges);//对输入几何按特征约束做进一步预处理（细化、插点、纠偏等）。
         cout << "refine:" << endl;
         cout << "#v " << old_cnt_v << "->" << V.rows() << endl;
         cout << "#e " << old_cnt_e << "->" << edges.size() << endl;
         old_cnt_v = V.rows();
         old_cnt_e = edges.size();
 
-        set_global_parameters();
-        build_b_mesh(V, edges, b_mesh);
+        set_global_parameters();//细化后再算一次尺度/公差（保持一致性）。
+        build_b_mesh(V, edges, b_mesh);//用最新的 V/edges 构建 Geogram 网格（线段→退化三角）。
 
-        GEO::MeshFacetsAABB b_tree(b_mesh);
-        triangulation::simplify_input(V, edges, b_tree);
+        GEO::MeshFacetsAABB b_tree(b_mesh);//基于 b_mesh 建立面片 AABB 树（BVH），用于快速几何查询。
+        triangulation::simplify_input(V, edges, b_tree);//借助 b_tree 对输入几何做一次简化（如合并近点、去噪、清退化等；细节在该函数内）。
         cout << "simplify:" << endl;
         cout << "#v " << old_cnt_v << "->" << V.rows() << endl;
         cout << "#e " << old_cnt_e << "->" << edges.size() << endl;
         cout << "#secondary_features = " << feature::secondary_features.size() << endl;
-    } else {
+    } 
+    else //不保特征
+    {
         set_global_parameters();
         build_b_mesh(V, edges, b_mesh);
         
@@ -186,17 +237,14 @@ void triwild::triangulation::preprocessing(Eigen::MatrixXd& V, std::vector<std::
     }
 }
 
-void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std::array<int, 2>>& edges, GEO::MeshFacetsAABB &b_tree) {
-//    Eigen::MatrixXd oV1(V.rows(), 3), _1;
-//    Eigen::MatrixXi oE1(edges.size(), 3);
-//    for (int i = 0; i < V.rows(); i++)
-//        oV1.row(i) << V(i, 0), V(i, 1), 0;
-//    for (int i = 0; i < edges.size(); i++)
-//        oE1.row(i) << edges[i][0], edges[i][1], edges[i][1];
-//    igl::writeSTL(args.output+"_before_edges.stl", oV1, oE1, _1);
-
+void triwild::triangulation::simplify_input(
+    Eigen::MatrixXd& V, 
+    std::vector<std::array<int, 2>>& edges, 
+    GEO::MeshFacetsAABB &b_tree) 
+    {
     using namespace optimization;
 
+    //建立点→边的邻接表。conn_es[v] 存所有与顶点 v 相邻的边的索引 id。
     std::vector<std::unordered_set<int>> conn_es(V.rows());
     for (int i = 0; i < edges.size(); i++) {
         conn_es[edges[i][0]].insert(i);
@@ -204,30 +252,21 @@ void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std:
     }
 
     ////feature
+    //主特征（primary features）上所有顶点全部标记为 is_freezed=true，后面不会被折叠（保护几何要素）
     std::vector<bool> is_freezed(V.rows(), false);
     for (int i = 0; i < feature::features.size(); i++) {
         for (int j = 0; j < feature::features[i]->v_ids.size(); j++)
             is_freezed[feature::features[i]->v_ids[j]] = true;
     }
-//    std::vector<int> tag_secondary_feature_vs(V.rows(), -1);
-//    for (int i = 0; i < feature::secondary_features.size(); i++) {
-//        for (int j = 0; j < feature::secondary_features[i]->v_ids.size(); j++)
-//            tag_secondary_feature_vs[feature::secondary_features[i]->v_ids[j]] = i;
-////        is_freezed[feature::secondary_features[i]->v_ids.front()] = true;
-////        is_freezed[feature::secondary_features[i]->v_ids.back()] = true;
-//    }
+
+    //为每个顶点维护：它属于哪些次级特征（secondary features）。
     std::vector<std::unordered_set<int>> tag_secondary_feature_vs(V.rows());
     for (int i = 0; i < feature::secondary_features.size(); i++) {
         for (int j = 0; j < feature::secondary_features[i]->v_ids.size(); j++)
             tag_secondary_feature_vs[feature::secondary_features[i]->v_ids[j]].insert(i);
-//        is_freezed[feature::secondary_features[i]->v_ids.front()] = true;
-//        is_freezed[feature::secondary_features[i]->v_ids.back()] = true;
     }
-//    for(int i=0;i<tag_secondary_feature_vs.size();i++) {
-//        if (tag_secondary_feature_vs[i].size() > 1)
-//            is_freezed[i] = true;
-//    }
 
+    //要折叠一个短链段，通常中间点度数=2，且不在主特征上。
     auto is_clean_vertex = [&](int v_id) -> bool {
         if (conn_es[v_id].size() != 2)
             return false;
@@ -238,6 +277,7 @@ void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std:
         return true;
     };
 
+    //把“以干净顶点为起点”的有向边 (v0→v1) 入队，权重用边长平方。
     std::priority_queue<ElementInQueue_s, std::vector<ElementInQueue_s>, cmp_s> queue_s;
     for (auto &e:edges) {
         double l = (V.row(e[0]) - V.row(e[1])).squaredNorm();
@@ -251,25 +291,17 @@ void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std:
     double epsilon_2 = args.envelope * args.envelope * 0.8 * 0.8;
     double dd = args.sampling_density;
     std::vector<bool> v_is_removed(V.rows(), false);
-    std::vector<bool> e_is_removed(edges.size(), false);
+    std::vector<bool> e_is_removed(edges.size(), false);//折叠过程中延迟删除标记。
 
-    auto update_secondary_feature = [&](int v1_id, int v2_id) -> void {
+    auto update_secondary_feature = [&](int v1_id, int v2_id) -> void 
+    {
         if (tag_secondary_feature_vs[v1_id].empty())
             return;
-
-//        int feature_id = tag_secondary_feature_vs[v1_id][0];
         auto tmp_tag_secondary_feature_vs_v1_id = tag_secondary_feature_vs[v1_id];
         for (int feature_id:tmp_tag_secondary_feature_vs_v1_id) {
             auto &v_ids = feature::secondary_features[feature_id]->v_ids;
             auto &paras = feature::secondary_features[feature_id]->paras;
             int j = std::find(v_ids.begin(), v_ids.end(), v1_id) - v_ids.begin();
-//            if (feature_id == 790) {
-//                cout << "v1v2_id " << v1_id << " " << v2_id << endl;
-//                cout << "feature " << feature_id << ": ";
-//                for (int i:v_ids)
-//                    cout << i << " ";
-//                cout << endl;
-//            }
 
             if(j == v_ids.size())
                 continue;
@@ -279,7 +311,6 @@ void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std:
                 paras.erase(paras.begin() + j);
                 continue;
             }
-
             //deal with loop
             int j2 = std::find(v_ids.begin(), v_ids.end(), v2_id) - v_ids.begin();
             if (j2 < v_ids.size()) {
@@ -295,36 +326,12 @@ void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std:
                     paras.erase(paras.begin(), paras.begin() + j2 + 1);
                 }
                 j = std::find(v_ids.begin(), v_ids.end(), v1_id) - v_ids.begin();
-//                cout << "kill a loop" << endl;
             }
 
             v_ids[j] = v2_id;
             tag_secondary_feature_vs[v2_id].insert(feature_id);
         }
-
-//        for (int feature_id = 0; feature_id < feature::secondary_features.size(); feature_id++) {
-//            auto &feature = feature::secondary_features[feature_id];
-//            for (int v_id:feature->v_ids) {
-//                if (v_is_removed[v_id]) {
-//                    cout << "feature " << feature_id << ": ";
-//                    for (int i:feature->v_ids)
-//                        cout << i << " ";
-//                    cout << endl;
-//                    cout << "v_id " << v_id << endl;
-//                    cout << "v1_id " << v1_id << ": ";
-//                    for (int i:tag_secondary_feature_vs[v1_id])
-//                        cout << i << " ";
-//                    cout << endl;
-//                    cout << "v2_id " << v2_id << ": ";
-//                    for (int i:tag_secondary_feature_vs[v2_id])
-//                        cout << i << " ";
-//                    cout << endl;
-//                }
-//                assert(v_is_removed[v_id] == false);
-//            }
-//        }
     };
-
 
     auto check = [&]() -> void{
         std::unordered_map<int, int> map_v_ids;
@@ -404,9 +411,6 @@ void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std:
                 queue_s.push(ElementInQueue_s(edges[e_id], l));
             if (is_clean_vertex(edges[e_id][1]))
                 queue_s.push(ElementInQueue_s({{edges[e_id][1], edges[e_id][0]}}, l));
-
-//            cout<<"find a loop"<<endl;
-//            check();
             continue;
         }
         double new_l = (V.row(v_id) - V.row(v2_id)).squaredNorm();
@@ -480,11 +484,7 @@ void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std:
         }
 
         update_secondary_feature(v1_id, v2_id);
-
-//        cout<<v_ids[0]<<" "<<v_ids[1]<<endl;
-//        check();
     }
-//    check();
 
     //clean up V and edges
     int cnt = std::count(v_is_removed.begin(), v_is_removed.end(), false);
@@ -522,34 +522,18 @@ void triwild::triangulation::simplify_input(Eigen::MatrixXd& V, std::vector<std:
             continue;
         }
         for (int j = 0; j < feature::secondary_features[i]->v_ids.size(); j++) {
-//            if (v_is_removed[feature::secondary_features[i]->v_ids[j]]) {
-//                feature::secondary_features[i]->v_ids.erase(feature::secondary_features[i]->v_ids.begin() + j);
-//                j--;
-//                continue;
-//            }
             assert(v_is_removed[feature::secondary_features[i]->v_ids[j]] == false);
             feature::secondary_features[i]->v_ids[j] = map_v_ids[feature::secondary_features[i]->v_ids[j]];
         }
-//        if (feature::secondary_features[i]->v_ids.size() < 2) {
-//            feature::secondary_features.erase(feature::secondary_features.begin() + i);
-//            i--;
-//            continue;
-//        }
     }
-
-//    Eigen::MatrixXd oV(V.rows(), 3), _;
-//    Eigen::MatrixXi oE(edges.size(), 3);
-//    for (int i = 0; i < V.rows(); i++)
-//        oV.row(i) << V(i, 0), V(i, 1), 0;
-//    for (int i = 0; i < edges.size(); i++)
-//        oE.row(i) << edges[i][0], edges[i][1], edges[i][1];
-//    igl::writeSTL(args.output+"_edges.stl", oV, oE, _);
 }
 
 #include <geogram/delaunay/delaunay.h>
 void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std::vector<std::array<int, 2>>& edges,
         MeshData& mesh, std::vector<std::vector<int>>& tag_boundary_es, GEO::MeshFacetsAABB& b_tree) {
     ////delaunay
+
+    //取输入顶点 V，并基于 bbox（加上目标边长的 buffer）得到外包矩形的 min/max。
     Eigen::MatrixXd new_V = V;
     const int n = new_V.rows();
 //    new_V.conservativeResize(n + 4, 2);
@@ -561,6 +545,8 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
 //    new_V.row(n + 3) << max(0), min(1);
 
     //add voxel points
+
+    //在 bbox 内放一层规则网格采样点
     int nx = (max[0] - min[0])/(args.diagonal_len/10) + 1.5;
     int ny = (max[1] - min[1])/(args.diagonal_len/10) + 1.5;
     double threshold_2 = (args.diagonal_len/1000)*(args.diagonal_len/1000);
@@ -571,7 +557,7 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
             GEO::vec3 nearest_point;
             double sq_dist;
             GEO::index_t prev_facet = b_tree.nearest_facet(p0, nearest_point, sq_dist);
-            if (sq_dist < threshold_2)
+            if (sq_dist < threshold_2)//但离输入边界太近的点不加，避免把约束边附近空间塞得太满
                 continue;
 
             new_V.conservativeResize(new_V.rows() + 1, 2);

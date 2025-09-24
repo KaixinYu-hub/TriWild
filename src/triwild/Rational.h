@@ -18,35 +18,36 @@ namespace triwild {
     public:
         //GMP 提供的有理数类型：分子分母都用任意精度整数存储。GMP 提供的有理数类型：分子分母都用任意精度整数存储。
         mpq_t value;
+        //约分，把分子分母化成最简形式，比如 2/4 → 1/2。
         void canonicalize() {
             mpq_canonicalize(value);
         }
+        //返回数的符号：正数、负数或零。
         int get_sign() {
             return mpq_sgn(value);
         }
-
+        //默认构造，初始化为 0。
         Rational() {
             mpq_init(value);
             mpq_set_d(value, 0);
         }
 
+        //可以从 double、已有的 GMP 有理数 mpq_t 或另一个 Rational 构造
         Rational(double d) {
             mpq_init(value);
             mpq_set_d(value, d);
 //            canonicalize();
         }
-
         Rational(const mpq_t &v_) {
             mpq_init(value);
             mpq_set(value, v_);
 //            canonicalize();
         }
-
         Rational(const Rational &other) {
             mpq_init(value);
             mpq_set(value, other.value);
         }
-
+        //析构时释放内部 GMP 资源。
         ~Rational() {
             mpq_clear(value);
         }
@@ -143,12 +144,12 @@ namespace triwild {
             return !mpq_equal(r.value, r1.value);
         }
 
-        //to double
+        //to double 把高精度有理数转换成 double。
         double to_double() {
             return mpq_get_d(value);
         }
 
-        //<<
+        //<<输出流重载，打印时直接转成 double 输出。
         friend std::ostream &operator<<(std::ostream &os, const Rational &r) {
             os << mpq_get_d(r.value);
             return os;

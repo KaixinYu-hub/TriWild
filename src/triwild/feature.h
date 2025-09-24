@@ -21,8 +21,19 @@ using json = nlohmann::json;
 
 namespace triwild {
     namespace feature {
+        /*主特征 (primary feature curves)
+        这些曲线是“重要”的。
+        要在网格中以 高阶曲边三角形 (curved triangle) 来精确表示。
+        网格的目标边长由用户指定，例如 --target-edge-length-r 参数。
+        这些特征必须尽可能保留，因为它们对几何和 PDE 边界条件可能至关重要。*/
         extern std::vector<std::shared_ptr<FeatureElement>> features;
+
+        /*次特征 (secondary feature curves)
+        这些曲线“不那么重要”或者太细小，没必要完全保留。
+        可以用 线性分片近似 (piecewise linear mesh) 来表示。
+        允许在设定的公差 ε 内近似，从而避免在这些细节处生成大量小而质量差的三角形。*/
         extern std::vector<std::shared_ptr<FeatureElement>> secondary_features;
+        
         extern double feature_eps;
         extern double feature_eps_2;
 

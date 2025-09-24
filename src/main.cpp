@@ -61,9 +61,9 @@ int main(int argc, char *argv[])
         return app.exit(e);
     }
 
-    GEO::initialize();
+    GEO::initialize();//初始化 Geogram（TriWild 内部用来做几何运算）。
 
-    igl::Timer main_timer;
+    igl::Timer main_timer;//使用 igl::Timer 做阶段耗时统计。
     double load_mesh_time = 0;
     double preprocess_time = 0;
     double bsp_time = 0;
@@ -88,6 +88,7 @@ int main(int argc, char *argv[])
     cout << "Loading and preprocessing ..." << endl;
     igl_timer.start();
 
+    //这一部分得到输入几何的点、边
     Eigen::MatrixXd V;
     std::vector<std::array<int, 2>> edges;
     triangulation::load_input(args.input, V, edges);
