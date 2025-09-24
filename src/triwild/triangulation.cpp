@@ -139,13 +139,6 @@ void triwild::triangulation::preprocessing(
     int old_cnt_v = V.rows();
     int old_cnt_e = edges.size();
 
-//    for (auto &feature:feature::features) {
-//        for (int i = 0; i < feature->paras.size(); i++) {
-//            Point_2f p = feature->eval(feature->paras[i]);
-//            V.row(feature->v_ids[i]) << p[0], p[1];
-//        }
-//    }
-
     //duplicate vertices
     //用 libigl 的 unique_rows 去掉重复顶点；VI 是“旧 → 新”的索引映射；V 替换为去重后的顶点表。
     Eigen::VectorXi VI, _;
@@ -295,10 +288,15 @@ void triwild::triangulation::simplify_input(
 
     auto update_secondary_feature = [&](int v1_id, int v2_id) -> void 
     {
+        //只有当 v1 关联了一些次特征时才需要处理。
         if (tag_secondary_feature_vs[v1_id].empty())
             return;
+
         auto tmp_tag_secondary_feature_vs_v1_id = tag_secondary_feature_vs[v1_id];
+
         for (int feature_id:tmp_tag_secondary_feature_vs_v1_id) {
+
+            //取出该次特征的顶点序列 v_ids 和对应参数 paras。
             auto &v_ids = feature::secondary_features[feature_id]->v_ids;
             auto &paras = feature::secondary_features[feature_id]->paras;
             int j = std::find(v_ids.begin(), v_ids.end(), v1_id) - v_ids.begin();
@@ -539,10 +537,6 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
 //    new_V.conservativeResize(n + 4, 2);
     Eigen::RowVector2d min(args.box_min(0) - args.target_edge_len, args.box_min(1) - args.target_edge_len);
     Eigen::RowVector2d max(args.box_max(0) + args.target_edge_len, args.box_max(1) + args.target_edge_len);
-//    new_V.row(n) = min;
-//    new_V.row(n + 1) << min(0), max(1);
-//    new_V.row(n + 2) = max;
-//    new_V.row(n + 3) << max(0), min(1);
 
     //add voxel points
 
@@ -609,14 +603,6 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
     }
 
     tag_boundary_es.resize(bsp_vertices.size());
-
-//    Eigen::MatrixXd dV(bsp_vertices.size(), 3), _1;
-//    Eigen::MatrixXi dF(bsp_faces.size(), 3);
-//    for (int i = 0; i < bsp_vertices.size(); i++)
-//        dV.row(i) << bsp_vertices[i].pos[0].to_double(), bsp_vertices[i].pos[1].to_double(), 0;
-//    for (int i = 0; i < bsp_faces.size(); i++)
-//        dF.row(i) << bsp_faces[i][0], bsp_faces[i][1], bsp_faces[i][2];
-//    igl::writeSTL(args.output+"_delaunay.stl", dV, dF, _1);
 
     int old_cnt_v = bsp_vertices.size();
     int old_cnt_f = bsp_faces.size();
@@ -685,13 +671,6 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
                                               intersection_v))
                         continue;
 
-//                    cout<<"old v_id = "<<v_id<<endl;
-//                    cout<<"p_ids = "<<p1_id<<" "<<p2_id<<endl;
-//                    cout<<"intersect face "<<f_id<<endl;
-//                    for(int f:bsp_faces[f_id])
-//                        cout<<f<<" ";
-//                    cout<<endl;
-
                     if (is_cross_p1) {
 //                        cout<<">>>is_cross_p1"<<endl;
                         if (p1_id == v2_id) {
@@ -706,19 +685,6 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
                             tmp_conn_fs.erase(n_f_id);
                         if (i != 1) {
                             int new_f_id = split_a_face(r_v_id, i, n_size, f_id);
-//                            std::vector<int> n_f_ids = optimization::set_intersection(conn_fs[v_id], conn_fs[p1_id]);
-//                            assert(n_f_ids.size()==2);
-//                            for (int n_f_id:n_f_ids)
-//                                tmp_conn_fs.erase(n_f_id);
-
-//                            cout<<"f_id: ";
-//                            for(int f:bsp_faces[new_f_id])
-//                                cout<<f<<" ";
-//                            cout<<endl;
-//                            cout<<"new_f_id: ";
-//                            for(int f:bsp_faces[f_id])
-//                                cout<<f<<" ";
-//                            cout<<endl;
                         }
                         v_id = p1_id;
 //                        optimization::pausee();
@@ -736,20 +702,6 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
                             tmp_conn_fs.erase(n_f_id);
                         if (i != n_size - 2) {
                             int new_f_id = split_a_face(r_v_id, i + 1, n_size, f_id);
-//                            std::vector<int> n_f_ids = optimization::set_intersection(conn_fs[v_id], conn_fs[p2_id]);
-//                            assert(n_f_ids.size()==2);
-//                            for (int n_f_id:n_f_ids)
-//                                tmp_conn_fs.erase(n_f_id);
-
-//                            cout<<r_v_id<<" "<< i + 1<<" "<< n_size<<endl;
-//                            cout<<"f_id: ";
-//                            for(int f:bsp_faces[new_f_id])
-//                                cout<<f<<" ";
-//                            cout<<endl;
-//                            cout<<"new_f_id: ";
-//                            for(int f:bsp_faces[f_id])
-//                                cout<<f<<" ";
-//                            cout<<endl;
                         }
                         v_id = p2_id;
                     } else {
@@ -778,15 +730,6 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
                             r_v_id++;
                         int new_f_id = split_a_face(r_v_id, i + 1, n_size + 1, f_id);
 
-//                        cout<<"f_id: ";
-//                        for(int f:bsp_faces[f_id])
-//                            cout<<f<<" ";
-//                        cout<<endl;
-//                        cout<<"new_f_id: ";
-//                        for(int f:bsp_faces[new_f_id])
-//                            cout<<f<<" ";
-//                        cout<<endl;
-
                         conn_fs[new_v_id].insert(n_f_id);
                         tag_boundary_es[new_v_id].push_back(e_id);
 
@@ -799,46 +742,10 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
                     is_intersected = true;
                     break;
                 }
-//                for(int i=0;i<bsp_faces.size();i++){
-//                    if(bsp_faces[i].size()<3){
-//                        cout<<"bsp_faces[i].size()<3, face "<<i<<endl;
-//                        optimization::pausee();
-//                    }
-//                    for(int v_id:bsp_faces[i])
-//                        if(conn_fs[v_id].find(i) == conn_fs[v_id].end()){
-//                            cout<<"!conn_fs["<<v_id<<"].contains("<<i<<")"<<endl;
-//                        }
-//                }
-//                optimization::pausee();
 
                 if (is_intersected)
                     break;
             }
-//            if (!is_intersected) {
-//                cout << "cannot find intersection" << endl;
-//                cout << "old v_id = " << v_id << endl;
-//                for (int f_id:tmp_conn_fs) {
-//                    cout << "face " << f_id << ": ";
-//                    for (int f:bsp_faces[f_id])
-//                        cout << f << " ";
-//                    cout << endl;
-//                }
-//                cout<<"///"<<endl;
-//                for (int f_id:conn_fs[v_id]) {
-//                    cout << "face " << f_id << ": ";
-//                    for (int f:bsp_faces[f_id])
-//                        cout << f << " ";
-//                    cout << endl;
-//                }
-//                cout<<"///"<<endl;
-//                for (int f_id:conn_fs[v2_id]) {
-//                    cout << "face " << f_id << ": ";
-//                    for (int f:bsp_faces[f_id])
-//                        cout << f << " ";
-//                    cout << endl;
-//                }
-//                optimization::pausee();
-//            }
             if (is_finished)
                 break;
         }
@@ -861,15 +768,6 @@ void triwild::triangulation::BSP_subdivision(const Eigen::MatrixXd& V, const std
             mesh.tris.push_back({{bsp_faces[f_id][0], bsp_faces[f_id][j], bsp_faces[f_id][j + 1]}});
         }
     }
-
-    //output and check
-//    Eigen::MatrixXd oV(mesh.tri_vertices.size(), 3), _;
-//    Eigen::MatrixXi oF(mesh.tris.size(), 3);
-//    for (int i = 0; i < mesh.tri_vertices.size(); i++)
-//        oV.row(i) << mesh.tri_vertices[i].posf[0], mesh.tri_vertices[i].posf[1], 0;
-//    for (int i = 0; i < mesh.tris.size(); i++)
-//        oF.row(i) << mesh.tris[i][0], mesh.tris[i][1], mesh.tris[i][2];
-//    igl::writeSTL(args.output+"_bsp.stl", oV, oF, _);
 
     cout << "#v " << old_cnt_v << "->" << mesh.tri_vertices.size() << endl;
     cout << "#f " << old_cnt_f << "->" << mesh.tris.size() << endl;
@@ -903,25 +801,6 @@ bool triwild::triangulation::segment_intersection(MeshData& mesh, int v_id, int 
             }
         }
     }
-
-//    ////check side
-//    Vector_2 n(bsp_vertices[v_id].pos[1] - bsp_vertices[v2_id].pos[1],
-//               bsp_vertices[v2_id].pos[0] - bsp_vertices[v_id].pos[0]);
-//    Vector_2 vp1 = bsp_vertices[p1_id].pos - bsp_vertices[v_id].pos;
-//    Vector_2 vp2 = bsp_vertices[p2_id].pos - bsp_vertices[v_id].pos;
-//    int sign1 = (n.dot(vp1)).get_sign();
-//    int sign2 = (n.dot(vp2)).get_sign();
-////    cout << sign1 << " " << sign2 << endl;
-////    if (sign1 == 0) {
-////        is_cross_p1 = true;
-////        return true;
-////    }
-////    if (sign2 == 0) {
-////        is_cross_p2 = true;
-////        return true;
-////    }
-//    if (sign1 == sign2)
-//        return false;
 
     ////compute
     auto &x1 = bsp_vertices[v_id].pos[0];

@@ -405,25 +405,6 @@ std::vector<double> triwild::feature::BezierCurve_Feature::inflection_points(con
         return res;
     }
 
-    //only one solution
-    // if(delta < 1e-8)
-    // {
-    //     double sol = -b/(2*a);
-
-    //     if(fabs(sol-t0) < 1e-15)
-    //         sol=t0;
-    //     if(fabs(sol-t1) < 1e-15)
-    //         sol=t1;
-
-    //     //sol in in range
-    //     if(sol > t0 && sol < t1)
-    //         res.push_back(sol);
-
-    //     return res;
-    // }
-
-
-
     const double delta_sqrt = sqrt(delta);
 
     double sol1 = (-b - delta_sqrt)/(2*a);
@@ -648,44 +629,8 @@ std::shared_ptr<triwild::feature::FeatureElement> triwild::feature::BezierCurve_
     if (!is_parallel)
         return NULL;
 
-//    return std::make_shared<Line_Feature>(v_ids, paras, Point_2f(new_poles[0], new_poles[1]), Point_2f(new_poles[new_poles.size()-2],new_poles[new_poles.size()-1]), curve_id);
     return std::make_shared<Line_Feature>(v_ids, paras, start, end, curve_id);
 
-    //sample
-//    const int N = v_ids.size() * 50;
-//    double t1 = paras.front();
-//    double t2 = paras.back();
-//    std::vector<Point_2f> ps;
-//    ps.reserve(N);
-//    Point_2f min, max;
-//    for (double n = 0; n <= N; n++) {
-//        ps.push_back(eval((1 - n / N) * t1 + (n / N) * t2));
-//        if (n == 0 || ps.back().x < min.x)
-//            min.x = ps.back().x;
-//        if (n == 0 || ps.back().y < min.y)
-//            min.y = ps.back().y;
-//        if (n == 0 || ps.back().x > max.x)
-//            max.x = ps.back().x;
-//        if (n == 0 || ps.back().y > max.y)
-//            max.y = ps.back().y;
-//    }
-//
-//    Point_2f min_x_min_y(min.x, min.y), min_x_max_y(min.x, max.y);
-//    double l_min_x_min_y;
-//    double l_min_x_max_y;
-//    for (int i = 0; i < ps.size(); i++) {
-//        double l = (min_x_min_y - ps[i]).length_2();
-//        if (i == 0 || l < l_min_x_min_y)
-//            l_min_x_min_y = l;
-//
-//        l = (min_x_max_y - ps[i]).length_2();
-//        if (i == 0 || l < l_min_x_max_y)
-//            l_min_x_max_y = l;
-//    }
-//    if (l_min_x_min_y < l_min_x_max_y)
-//        return std::make_shared<Line_Feature>(v_ids, paras, min, max, curve_id);
-//    else
-//        return std::make_shared<Line_Feature>(v_ids, paras, Point_2f(min.x, max.y), Point_2f(max.x, min.y), curve_id);
 }
 
 std::string triwild::feature::BezierCurve_Feature::to_eps() const

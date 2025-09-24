@@ -49,42 +49,6 @@ bool triwild::feature::init(const std::string& feature_file) {
         return false;
 
     return init(feature_info);
-
-//    std::vector<int> tmp = {4179, 4189};//2321, 2322,1295, 1346,  4179, 4189
-//    for (int i = 0; i < feature_info.size(); i++) {
-////        if(std::find(tmp.begin(), tmp.end(), i) != tmp.end())
-////            continue;
-//        std::vector<int> v_ids;
-//        v_ids.reserve(feature_info[i]["v_ids"].size());
-//        for (int j = 0; j < feature_info[i]["v_ids"].size(); j++)
-//            v_ids.push_back((int) feature_info[i]["v_ids"][j]);
-//        std::vector<double> paras;
-//        paras.reserve(feature_info[i]["paras"].size());
-//        for (int j = 0; j < feature_info[i]["paras"].size(); j++)
-//            paras.push_back((double) feature_info[i]["paras"][j]);
-//
-//        if (feature_info[i]["type"] == "Line") {
-//            features.push_back(std::make_shared<Line_Feature>(v_ids, paras,
-//                                                              json2point(feature_info[i]["start"]),
-//                                                              json2point(feature_info[i]["end"]),
-//                                                              feature_info[i]["curve_id"]));
-//        } else if (feature_info[i]["type"] == "RationalBezier") {
-//            features.push_back(std::make_shared<RationalBezierCurve_Feature>(v_ids, paras,
-//                                                                             json2d2ctrlvector(
-//                                                                                     feature_info[i]["poles"]),
-//                                                                             json1d2ctrlvector(
-//                                                                                     feature_info[i]["weigths"]),
-//                                                                             feature_info[i]["curve_id"]));
-//        } else if (feature_info[i]["type"] == "BezierCurve") {
-//            features.push_back(std::make_shared<BezierCurve_Feature>(v_ids, paras,
-//                                                                     feature_info[i]["degree"],
-//                                                                     json2d2ctrlvector(feature_info[i]["poles"]),
-//                                                                     feature_info[i]["curve_id"]));
-//        } else {
-//            cout << "Unknown curve typle " << feature_info[i]["type"] << " will not be preserved" << endl;
-//        }
-//    }
-//    return true;
 }
 
 bool triwild::feature::init(json& feature_info){
@@ -152,16 +116,6 @@ void triwild::feature::map_feature2mesh(MeshData& mesh) {
                         if (tmp_v_id != v_id && !is_visited[tmp_v_id])
                             n_v_ids.insert(tmp_v_id);
                 }
-//                for (int t_id:mesh.tri_vertices[v_id].conn_tris) {
-//                    int j = std::find(mesh.tris[t_id].begin(), mesh.tris[t_id].end(), v_id) - mesh.tris[t_id].begin();
-//                    if (!is_visited[mesh.tris[t_id][(j + 1) % 3]] && mesh.is_boundary_es[t_id][(j + 2) % 3]) {
-//                        n_v_ids.insert(mesh.tris[t_id][(j + 1) % 3]);
-//                    }
-//                    if (!is_visited[mesh.tris[t_id][(j + 2) % 3]] && mesh.is_boundary_es[t_id][(j + 1) % 3]) {
-//                        n_v_ids.insert(mesh.tris[t_id][(j + 2) % 3]);
-//                    }
-//                }
-
                 //mark is_visited
                 is_visited[v_id] = true;
                 for (int n_v_id:n_v_ids)
@@ -212,29 +166,6 @@ void triwild::feature::map_feature2mesh(MeshData& mesh) {
 
                 feature->paras.insert(feature->paras.begin() + i, tmp_t);
 
-//                if (feature->type == "Line") {
-//                    double tmp_t = feature->inv_eval(mesh.tri_vertices[v_id].posf,
-//                                                     start_t, old_feature_paras[cnt - 1], old_feature_paras[cnt]);
-//                    feature->paras.insert(feature->paras.begin() + i, tmp_t);
-//                } else {
-//                    double tmp_t = feature->inv_eval(mesh.tri_vertices[v_id].posf,
-//                                                     start_t, old_feature_paras[cnt - 1], old_feature_paras[cnt]);
-//                    if (tmp_t < old_feature_paras[cnt - 1] || tmp_t > old_feature_paras[cnt]) {
-//                        std::cout << "starting point " << start_t << std::endl;
-//                        std::cout << "[cnt-1] " << mesh.tri_vertices[feature->v_ids[cnt - 1]].posf << std::endl;
-//                        std::cout << "[cnt] " << mesh.tri_vertices[feature->v_ids[cnt]].posf << std::endl;
-//                        std::cout << old_feature_paras[cnt - 1] << std::endl;
-//                        std::cout << old_feature_paras[cnt] << std::endl;
-//                        cout << "feature " << feature->curve_id << endl;
-//                        cout << "feature " << feature->type << endl;
-//                        cout << "\n--------\n" << feature->to_maple() << "\n---------" << endl;
-//                        cout << "t " << tmp_t << endl;
-//                        cout << "p " << mesh.tri_vertices[v_id].posf << endl;
-//                        optimization::pausee();
-//                        tmp_t = start_t;
-//                    }
-//                    feature->paras.insert(feature->paras.begin() + i, tmp_t);
-//                }
             } else
                 cnt++;
 
@@ -289,29 +220,6 @@ void triwild::feature::map_feature2mesh(MeshData& mesh) {
             mesh.tri_vertices[i].is_freezed = true;
     }
 
-//    for (int i = 0; i < mesh.tri_vertices.size(); i++) {
-//        if (mesh.v_is_removed[i])
-//            continue;
-//        if (mesh.tri_vertices[i].feature_infos.size() != 1)//==0?
-//            continue;
-//
-//        auto &info = mesh.tri_vertices[i].feature_infos[0];
-//        Point_2f pt = feature::features[info[0]]->eval(info[1]);
-//        if (pt != mesh.tri_vertices[i].posf) {
-//            double l = (pt - mesh.tri_vertices[i].posf).length();
-//            if (l > 1e-1) {
-//                cout << "bbox" << endl;
-//                cout << args.box_min(0) << " " << args.box_min(1) << endl;
-//                cout << args.box_max(0) << " " << args.box_max(1) << endl;
-//                cout << "l = " << l << endl;
-//                cout << "v_id = " << i << endl;
-//                cout << feature::features[info[0]]->curve_id << endl;
-//                cout << feature::features[info[0]]->type << endl;
-//                cout << mesh.tri_vertices[i].is_freezed << endl;
-//                optimization::pausee();
-//            }
-//        }
-//    }
 }
 
 bool triwild::feature::is_on_segment(const Point_2& p, const Point_2& p1, const Point_2& p2) {
@@ -479,13 +387,6 @@ void triwild::feature::merge_inflection(MeshData& mesh) {
             continue;
         }
 
-        // if(feature_ptr->is_inflection[1])
-        // current_f_id=-1;
-
-//        std::cout << "same id" << current_end << " vs " << feature_ptr->paras.front() << std::endl;
-
-        //previous id is equal current id
-
         //previous end point matches current start
         if (feature_ptr->paras.front() == current_end) {
             current_feature->merge_after(*feature_ptr);
@@ -622,48 +523,6 @@ void triwild::feature::check_inversion(MeshData& mesh, bool is_output_objs){
                 nodes.push_back(mesh.nodes[n_id]);
             if (!is_valid_inversion({{mesh.tri_vertices[mesh.tris[i][0]].posf, mesh.tri_vertices[mesh.tris[i][1]].posf,
                                              mesh.tri_vertices[mesh.tris[i][2]].posf}}, nodes)) {
-//                cout << "----------\n"<<i<<" inverted curved element\n";
-//
-//                std::cout<<mesh.tri_vertices[mesh.tris[i][0]].posf<<"\n";
-//                std::cout<<mesh.tri_vertices[mesh.tris[i][1]].posf<<"\n";
-//                std::cout<<mesh.tri_vertices[mesh.tris[i][2]].posf<<"\n";
-//                for(auto &n : nodes)
-//                    std::cout<<n<<"\n";
-//                cout<<"----------\n"<<endl;
-//
-//                int id = -1;
-//                int index = -1;
-//                for(int ii = 0; ii < 3; ++ii){
-//                    auto asd = mesh.tag_feature_es[i][ii];
-//                    if(asd > id)
-//                    {
-//                        id = asd;
-//                        index = ii;
-//                    }
-//                }
-//                assert(mesh.tag_feature_es[i][index] == id);
-//                const TriVertex &v1 = mesh.tri_vertices[mesh.tris[i][(index + 1) % 3]];
-//                const TriVertex &v2 = mesh.tri_vertices[mesh.tris[i][(index + 2) % 3]];
-//
-//                cout<<"----------\n"<<endl;
-//                for(int lv = 0; lv < 3; ++lv)
-//                {
-//                    const auto &vvv = mesh.tri_vertices[mesh.tris[i][lv]];
-//
-//                    for(int fid : vvv.conn_tris)
-//                    {
-//                        std::cout<<mesh.tris[fid][0]<<" "<<mesh.tris[fid][1]<< " "<<mesh.tris[fid][2]<<std::endl;
-//                    }
-//                }
-//
-//                cout<<"----------\n"<<endl;
-//
-//                cout<<"----------\n"<<endl;
-//                features[id]->print_info();
-//                cout<<"----------\n"<<endl;
-//                cout<<v1.get_t(id) << " "<< v2.get_t(id)<<endl;
-//                cout<<"----------\n"<<endl;
-
                 invalid_t_ids.push_back(i);
             }
         }
@@ -773,15 +632,6 @@ void triwild::feature::fix_inversion(MeshData& mesh) {
         }
         bool is_fitted = true;
         std::vector<Point_2f> fit_nodes;
-
-//        cout<<"t_id "<<i<<endl;
-//        cout<<vs[0]<<endl;
-//        cout<<vs[1]<<endl;
-//        cout<<vs[2]<<endl;
-//        for(auto&n:nodes)
-//            cout<<n<<endl;
-//        cout<<e_id<<endl;
-//        cout<<"////////////////////"<<endl;
 
         const double ls_dist = CurvedTriUntangler::ls_fit(vs, nodes, e_id, fit_nodes, false);
         if (ls_dist < 0) {
@@ -928,27 +778,6 @@ void triwild::feature::subdivide_into_3(MeshData& mesh) {
 
 #include <cassert>
 void triwild::feature::add_nodes(MeshData& mesh) {
-//    for(int i=0;i<mesh.tri_vertices.size();i++) {
-//        if (mesh.v_is_removed[i])
-//            continue;
-//        for (auto &info:mesh.tri_vertices[i].feature_infos) {
-//            assert(info[1]>=0 && info[1]<=1);
-//            Point_2f p = feature::features[info[0]]->eval(info[1]);
-//            double l = (p - mesh.tri_vertices[i].posf).length_2();
-//            if (l > 1e-8) {
-//                cout << "(p-mesh.tri_vertices[i].posf).length_2()>1e-8" << endl;
-//                cout << "p: " << p << endl;
-//                cout << "posf: " << mesh.tri_vertices[i].posf << endl;
-//                cout << "v " << i << ", feature " << info[0] << " " << feature::features[info[0]]->type << endl;
-//
-////                feature::features[info[0]]->print_info();
-////                cout<<feature::features[info[0]]->to_maple()<<endl;
-//
-////                mesh.tri_vertices[i].posf = p;
-//                optimization::pausee();
-//            }
-//        }
-//    }
 
     mesh.tri_nodes.resize(mesh.tris.size());
 
@@ -1112,167 +941,6 @@ ControlVector triwild::feature::json1d2ctrlvector(const json& a){
     return r;
 }
 
-//#include <igl/opengl/glfw/Viewer.h>
-// void triwild::feature::visualize_features(MeshData& mesh) {
-//     igl::opengl::glfw::Viewer viewer;
-
-//     cout<< viewer.data().point_size<<endl;
-//     viewer.data().point_size = 10;
-
-//     int feature_id = 0;
-//     bool is_show_input = false;
-//     bool is_all = true;
-
-//     auto set_edge = [&]() -> void {
-//         Eigen::MatrixXd VE;
-//         Eigen::MatrixXi E;
-//         if (is_show_input) {
-//             if (is_all) {
-//                 int cnt_e = 0;
-//                 for (auto &feature:features)
-//                     cnt_e += feature->v_ids.size() - 1;
-//                 VE.resize(cnt_e * 2, 3);
-//                 E.resize(cnt_e, 2);
-//                 int cnt = 0;
-//                 for (auto &feature:features) {
-//                     for (int i = 0; i < feature->v_ids.size() - 1; i++) {
-//                         VE(cnt * 2, 0) = mesh.tri_vertices[feature->v_ids[i]].posf[0];
-//                         VE(cnt * 2, 1) = mesh.tri_vertices[feature->v_ids[i]].posf[1];
-//                         VE(cnt * 2, 2) = 0;
-//                         VE(cnt * 2 + 1, 0) = mesh.tri_vertices[feature->v_ids[i + 1]].posf[0];
-//                         VE(cnt * 2 + 1, 1) = mesh.tri_vertices[feature->v_ids[i + 1]].posf[1];
-//                         VE(cnt * 2 + 1, 2) = 0;
-//                         E(cnt, 0) = cnt * 2;
-//                         E(cnt, 1) = cnt * 2 + 1;
-//                         cnt++;
-//                     }
-
-//                     const auto &front = mesh.tri_vertices[feature->v_ids.front()].posf;
-//                     const auto &back = mesh.tri_vertices[feature->v_ids.back()].posf;
-//                     viewer.data().add_points(Eigen::RowVector3d(front[0], front[1], 0), Eigen::RowVector3d(feature->is_inflection[0]?0:1,feature->is_inflection[0]?1:0,0));
-//                     viewer.data().add_points(Eigen::RowVector3d(back[0], back[1], 0), Eigen::RowVector3d(feature->is_inflection[1]?0:1,feature->is_inflection[1]?1:0,0));
-//                 }
-//             } else {
-//                 auto feature = features[feature_id];
-//                 VE.resize((feature->v_ids.size() - 1) * 2, 3);
-//                 E.resize(feature->v_ids.size() - 1, 2);
-//                 int cnt = 0;
-//                 for (int i = 0; i < feature->v_ids.size() - 1; i++) {
-//                     VE(cnt * 2, 0) = mesh.tri_vertices[feature->v_ids[i]].posf[0];
-//                     VE(cnt * 2, 1) = mesh.tri_vertices[feature->v_ids[i]].posf[1];
-//                     VE(cnt * 2, 2) = 0;
-//                     VE(cnt * 2 + 1, 0) = mesh.tri_vertices[feature->v_ids[i + 1]].posf[0];
-//                     VE(cnt * 2 + 1, 1) = mesh.tri_vertices[feature->v_ids[i + 1]].posf[1];
-//                     VE(cnt * 2 + 1, 2) = 0;
-//                     E(cnt, 0) = cnt * 2;
-//                     E(cnt, 1) = cnt * 2 + 1;
-//                     cnt++;
-//                 }
-
-//                 const auto &front = mesh.tri_vertices[feature->v_ids.front()].posf;
-//                 const auto &back = mesh.tri_vertices[feature->v_ids.back()].posf;
-//                 viewer.data().add_points(Eigen::RowVector3d(front[0], front[1], 0), Eigen::RowVector3d(1,0,0));
-//                 viewer.data().add_points(Eigen::RowVector3d(back[0], back[1], 0), Eigen::RowVector3d(1,0,0));
-//             }
-//         } else {
-//             std::vector<std::array<int, 2>> edges;
-//             for (int i = 0; i < mesh.tris.size(); i++) {
-//                 if (mesh.t_is_removed[i])
-//                     continue;
-//                 for (int j = 0; j < 3; j++) {
-//                     if ((is_all && mesh.tag_feature_es[i][j] >= 0)
-//                         || (!is_all && mesh.tag_feature_es[i][j] == feature_id)) {
-//                         std::array<int, 2> e = {mesh.tris[i][(j + 1) % 3], mesh.tris[i][(j + 2) % 3]};
-//                         if (e[0] > e[1])
-//                             std::swap(e[0], e[1]);
-//                         edges.push_back(e);
-//                     }
-//                 }
-//             }
-//             std::sort(edges.begin(), edges.end());
-//             edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
-
-//             VE.resize(edges.size() * 2, 3);
-//             E.resize(edges.size(), 2);
-//             for (int i = 0; i < edges.size(); i++) {
-//                 for (int j = 0; j < 2; j++) {
-//                     VE.row(i * 2 + j)
-//                             << mesh.tri_vertices[edges[i][j]].posf[0], mesh.tri_vertices[edges[i][j]].posf[1], 0;
-//                     E(i, j) = i * 2 + j;
-//                 }
-//             }
-//         }
-//         Eigen::MatrixXd C(1, 3);
-//         C << 1, 0, 0;
-//         viewer.data().set_edges(VE, E, C);
-//     };
-
-//     viewer.callback_key_down = [&](igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifier) {
-//         if (key == '=') {
-//             feature_id++;
-//             if (feature_id == features.size())
-//                 feature_id = 0;
-//             cout << "showing feature " << feature_id << endl;
-//             set_edge();
-//         } else if (key == '-') {
-//             feature_id--;
-//             if (feature_id == -1)
-//                 feature_id = features.size() - 1;
-//             cout << "showing feature " << feature_id << endl;
-//             set_edge();
-//         } else if (key == 'C') {
-//             is_show_input = !is_show_input;
-//             cout << "switch to is_show_input = "<<is_show_input<< endl;
-//             set_edge();
-//         } else if (key == 'A'){
-//             is_all = !is_all;
-//             cout << "switch to is_all = "<<is_all<< endl;
-//             set_edge();
-//         }
-//         return false;
-//     };
-
-//     Eigen::MatrixXd V;
-//     Eigen::MatrixXi F;
-
-//     std::unordered_map<int, int> map_v_ids;
-//     int cnt = 0;
-//     for (size_t i = 0; i < mesh.tri_vertices.size(); i++) {
-//         if (mesh.v_is_removed[i])
-//             continue;
-//         map_v_ids[i] = cnt++;
-//     }
-//     V.resize(cnt, 3);
-//     cnt = 0;
-//     for (size_t i = 0; i < mesh.tri_vertices.size(); i++) {
-//         if (mesh.v_is_removed[i])
-//             continue;
-//         V(cnt, 0) = mesh.tri_vertices[i].posf[0];
-//         V(cnt, 1) = mesh.tri_vertices[i].posf[1];
-//         V(cnt, 2) = 0;
-//         cnt++;
-//     }
-
-//     cnt = std::count(mesh.t_is_removed.begin(), mesh.t_is_removed.end(), false);
-//     F.resize(cnt, 3);
-//     cnt = 0;
-//     for (size_t i = 0; i < mesh.tris.size(); i++) {
-//         if (mesh.t_is_removed[i])
-//             continue;
-//         for (int j = 0; j < 3; j++)
-//             F(cnt, j) = map_v_ids[mesh.tris[i][j]];
-//         cnt++;
-//     }
-
-//     set_edge();
-
-//     viewer.core.background_color << 1.0f, 1.0f, 1.0f, 0.0f;
-//     viewer.data().show_overlay = true;
-//     viewer.core.set_rotation_type(igl::opengl::ViewerCore::RotationType::ROTATION_TYPE_TRACKBALL);
-//     viewer.data().set_face_based(true);
-//     viewer.data().set_mesh(V, F);
-//     viewer.launch();
-// }
 
 #include <igl/writeSTL.h>
 void triwild::feature::output_input_features(const std::vector<std::shared_ptr<FeatureElement>>& features,
@@ -1290,15 +958,6 @@ void triwild::feature::output_input_features(const std::vector<std::shared_ptr<F
             E_out.row(cnt++) << features[i]->v_ids[j], features[i]->v_ids[j + 1], features[i]->v_ids[j + 1];
     }
     igl::writeSTL(args.output + "_"+postfix+".stl", V_out, E_out);
-
-
-
-
-
-
-
-
-
         std::ofstream os(args.output + "_"+postfix+".eps");
         if(os.fail())
             return;
